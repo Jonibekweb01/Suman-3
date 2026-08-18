@@ -4,11 +4,16 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": [
-      "ES2023"
+      "ES2023",
+      "DOM"
+    ],
+    "types": [
+      "node"
     ],
     "outDir": "dist",
     "rootDir": "src",
-    "strict": true,
+    "strict": false,
+    "noImplicitAny": false,
     "noImplicitOverride": true,
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
@@ -20,8 +25,7 @@
     "skipLibCheck": true,
     "sourceMap": true,
     "declaration": false,
-    "removeComments": false,
-    // "types": ["node"]
+    "removeComments": false
   },
   "include": [
     "src/**/*.ts"

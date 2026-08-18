@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { ValidationError } from '../../core/errors';
 import { asyncHandler, created, noContent, ok } from '../../core/http';
 import { authenticate } from '../../middlewares/auth.middleware';
 import { writeLimiter } from '../../middlewares/rateLimit.middleware';
@@ -43,10 +44,13 @@ reviewRouter.put(
   validate({ params: productIdParamSchema, body: upsertReviewSchema }),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof upsertReviewSchema>;
+    if (body.rating === undefined) {
+      throw new ValidationError([{ field: 'rating', message: 'Rating is required' }]);
+    }
     const review = await reviewService.upsertReview(
       req.user!.id,
       req.params.productId as string,
-      body,
+      { rating: body.rating, comment: body.comment },
     );
     created(res, review);
   }),

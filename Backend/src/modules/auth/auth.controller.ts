@@ -35,7 +35,15 @@ function respondWithSession(res: Response, session: authService.IssuedSession, s
 
 export const register = asyncHandler(async (req, res) => {
   const body = req.body as RegisterInput;
-  const result = await authService.register(body);
+  if (!body.identifier || !body.password || !body.firstName) {
+    throw new UnauthorizedError('Invalid registration payload', 'INVALID_PAYLOAD');
+  }
+  const result = await authService.register({
+    identifier: body.identifier,
+    password: body.password,
+    firstName: body.firstName,
+    lastName: body.lastName,
+  });
   created(res, {
     message: 'Verification code sent',
     identifier: result.identifier,

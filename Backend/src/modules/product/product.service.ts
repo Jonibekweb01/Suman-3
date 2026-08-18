@@ -416,9 +416,25 @@ export async function createProduct(input: CreateProductInput) {
   });
 }
 
-function assertUniqueVariants(variants: Array<{ color: string; size: string }>): void {
+type VariantInput = {
+  color?: string;
+  colorHex?: string;
+  size?: string;
+  sku?: string;
+  stock?: number;
+  priceDiff?: number;
+};
+
+type CompleteVariantInput = VariantInput & { color: string; size: string };
+
+function assertUniqueVariants(
+  variants: VariantInput[],
+): asserts variants is CompleteVariantInput[] {
   const seen = new Set<string>();
   for (const variant of variants) {
+    if (!variant.color || !variant.size) {
+      throw new ConflictError('Every variant must have a colour and size');
+    }
     const key = `${variant.color.toLowerCase()}::${variant.size.toLowerCase()}`;
     if (seen.has(key)) {
       throw new ConflictError(`Duplicate variant: ${variant.color} / ${variant.size}`);

@@ -93,9 +93,12 @@ userRouter.get(
   requireRole('ADMIN'),
   validate({ query: adminListUsersSchema }),
   asyncHandler(async (req, res) => {
-    const { items, meta } = await userService.listUsers(
-      req.query as unknown as z.infer<typeof adminListUsersSchema>,
-    );
+    const query = req.query as unknown as z.infer<typeof adminListUsersSchema>;
+    const { items, meta } = await userService.listUsers({
+      ...query,
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
+    });
     ok(res, items, meta);
   }),
 );

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "suman-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Frontend", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "suman-admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "Admin", "run", "dev"],
+      "port": 5174
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: suman-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: suman
+      POSTGRES_PASSWORD: suman
+      POSTGRES_DB: suman
+    ports:
+      - '5432:5432'
+    volumes:
+      - suman-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Prisma migrations fail if they run before Postgres finishes booting.
+      test: ['CMD-SHELL', 'pg_isready -U suman -d suman']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  suman-pgdata:

@@ -1,0 +1,412 @@
+// =============================================================================
+//  Suman — E-commerce data model
+//  All monetary values are stored as INTEGERS in the currency's minor unit
+//  (tiyin for UZS, cents for USD). This avoids float rounding errors and
+//  Decimal <-> JSON serialization problems on the API boundary.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Gender {
+  WOMEN
+  MEN
+  UNISEX
+  KIDS
+}
+
+enum OtpPurpose {
+  REGISTER
+  LOGIN
+  RESET_PASSWORD
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  CARD
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+// ----------------------------------------------------------------------------
+// Identity
+// ----------------------------------------------------------------------------
+
+model User {
+  id           String  @id @default(cuid())
+  email        String? @unique
+  phone        String? @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  avatarUrl    String?
+
+  role       Role    @default(USER)
+  isVerified Boolean @default(false)
+  isBlocked  Boolean @default(false)
+
+  /// Bumped on "log out everywhere" / password change — invalidates every
+  /// previously issued access token without needing a token blacklist.
+  tokenVersion Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  otpCodes      OtpCode[]
+  cartItems     CartItem[]
+  wishlist      WishlistItem[]
+  orders        Order[]
+  addresses     Address[]
+  reviews       Review[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model RefreshToken {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 of the raw token. The raw value only ever lives in the
+  /// HttpOnly cookie, never in the database.
+  tokenHash String @unique
+
+  /// Rotation family. Reuse of an already-rotated token revokes the whole
+  /// family (refresh-token reuse detection).
+  family String
+
+  userAgent String?
+  ip        String?
+
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([family])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model OtpCode {
+  id String @id @default(cuid())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Normalized email or phone the code was sent to.
+  identifier String
+  codeHash   String
+  purpose    OtpPurpose
+
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([identifier, purpose])
+  @@index([expiresAt])
+  @@map("otp_codes")
+}
+
+// ----------------------------------------------------------------------------
+// Catalog
+// ----------------------------------------------------------------------------
+
+model Category {
+  id       String  @id @default(cuid())
+  name     String
+  slug     String  @unique
+  gender   Gender?
+  imageUrl String?
+
+  parentId String?
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@index([parentId])
+  @@index([gender])
+  @@map("categories")
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  title       String
+  slug        String  @unique
+  description String  @db.Text
+  brand       String?
+  gender      Gender  @default(UNISEX)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  /// Minor units (see file header).
+  price    Int
+  oldPrice Int?
+  currency String @default("UZS")
+
+  rating      Float @default(0)
+  reviewCount Int   @default(0)
+  sold        Int   @default(0)
+
+  isActive   Boolean @default(true)
+  isFeatured Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  images   ProductImage[]
+  variants ProductVariant[]
+  reviews  Review[]
+  wishedBy WishlistItem[]
+
+  @@index([categoryId])
+  @@index([gender, isActive])
+  @@index([price])
+  @@index([createdAt])
+  @@index([isFeatured, isActive])
+  @@map("products")
+}
+
+model ProductImage {
+  id String @id @default(cuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  url String
+  /// BlurHash placeholder so the client can render a blurred preview
+  /// before the real image lands (LCP / CLS budget).
+  blurHash  String?
+  alt       String?
+  sortOrder Int     @default(0)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id String @id @default(cuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  color    String
+  colorHex String
+  size     String
+  sku      String  @unique
+
+  stock Int @default(0)
+  /// Signed delta applied on top of Product.price (minor units).
+  priceDiff Int @default(0)
+
+  cartItems CartItem[]
+
+  @@unique([productId, color, size])
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model Review {
+  id String @id @default(cuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rating  Int
+  comment String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, userId])
+  @@index([productId])
+  @@map("reviews")
+}
+
+model Banner {
+  id              String  @id @default(cuid())
+  title           String
+  subtitle        String?
+  imageUrl        String
+  mobileImageUrl  String?
+  link            String?
+  sortOrder       Int     @default(0)
+  isActive        Boolean @default(true)
+  startsAt        DateTime?
+  endsAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("banners")
+}
+
+// ----------------------------------------------------------------------------
+// Commerce
+// ----------------------------------------------------------------------------
+
+model CartItem {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  quantity Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, variantId])
+  @@index([userId])
+  @@map("cart_items")
+}
+
+model WishlistItem {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("wishlist_items")
+}
+
+model Address {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName   String
+  phone      String
+  region     String
+  city       String
+  street     String
+  apartment  String?
+  postalCode String?
+  isDefault  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  status        OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod @default(CASH_ON_DELIVERY)
+  paymentStatus PaymentStatus @default(UNPAID)
+
+  /// Minor units.
+  subtotal    Int
+  discount    Int @default(0)
+  deliveryFee Int @default(0)
+  total       Int
+
+  currency String @default("UZS")
+
+  // Immutable snapshot of the delivery address at checkout time.
+  shipFullName   String
+  shipPhone      String
+  shipRegion     String
+  shipCity       String
+  shipStreet     String
+  shipApartment  String?
+  shipPostalCode String?
+
+  note        String?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items OrderItem[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Nullable references: catalog rows may be removed later, the snapshot stays.
+  productId String?
+  variantId String?
+
+  titleSnapshot String
+  imageSnapshot String?
+  color         String
+  size          String
+  sku           String
+
+  unitPrice Int
+  quantity  Int
+  total     Int
+
+  @@index([orderId])
+  @@map("order_items")
+}

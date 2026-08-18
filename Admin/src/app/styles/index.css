@@ -1,0 +1,117 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Suman Admin — design tokens
+
+   Deliberately NOT the storefront palette. This is a dense internal tool:
+   cool neutral greys, tighter type, and colour reserved for status meaning
+   (a shipped order, a low stock warning) rather than for brand expression.
+   Sharing the storefront's warm ivory would make the two easy to confuse when
+   both are open in adjacent tabs.
+   ========================================================================== */
+
+@theme {
+  --color-canvas: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-sunken: #eef0f4;
+
+  --color-ink: #14171f;
+  --color-ink-soft: #3d4353;
+  --color-muted: #6b7280;
+  --color-line: #e3e6ec;
+  --color-line-strong: #cfd4de;
+
+  --color-brand: #2f4858;
+  --color-brand-hover: #223845;
+
+  --color-info: #1d4ed8;
+  --color-info-soft: #eef2ff;
+  --color-success: #15803d;
+  --color-success-soft: #ecfdf3;
+  --color-warning: #b45309;
+  --color-warning-soft: #fffaeb;
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  --radius-card: 0.5rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Numeric columns must align across rows or a table of prices is unreadable. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+@utility shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-sunken) 30%,
+    color-mix(in oklab, var(--color-sunken) 55%, white) 50%,
+    var(--color-sunken) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Wide tables must scroll inside their own container, never the page body. */
+@utility table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}

@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "outDir": "dist",
     "rootDir": "src",
     "strict": true,
@@ -19,8 +21,14 @@
     "sourceMap": true,
     "declaration": false,
     "removeComments": false,
-    "types": ["node"]
+    // "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "prisma/seed.ts"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "prisma/seed.ts"
+  ]
 }
